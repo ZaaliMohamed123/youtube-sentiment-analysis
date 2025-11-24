@@ -1,0 +1,48 @@
+# Environnement virtuel
+venv/
+env/
+ENV/
+
+# Fichiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Données
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Modèles
+models/*.joblib
+models/*.pkl
+models/*
+
+# Logs
+logs/
+*.log
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Variables d'environnement
+.env
+.env.local
+
+# Cache
+.cache/
+*.tmp
