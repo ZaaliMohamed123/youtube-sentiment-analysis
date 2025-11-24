@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Sentiment Analyzer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Sentiment Analyzer</h1>
+      <button id="themeToggle" class="theme-btn">🌙</button>
+    </header>
+
+    <!-- Status -->
+    <div id="status" class="status">
+      <p>Extraction des commentaires...</p>
+    </div>
+
+    <!-- Stats globales -->
+    <div id="statsSection" class="stats-section hidden">
+      <h2>Statistiques</h2>
+      <div class="stats-grid">
+        <div class="stat-card positive">
+          <div class="stat-number" id="positiveCount">0</div>
+          <div class="stat-label">Positif 😊</div>
+        </div>
+        <div class="stat-card neutral">
+          <div class="stat-number" id="neutralCount">0</div>
+          <div class="stat-label">Neutre 😐</div>
+        </div>
+        <div class="stat-card negative">
+          <div class="stat-number" id="negativeCount">0</div>
+          <div class="stat-label">Négatif 😞</div>
+        </div>
+      </div>
+      <canvas id="chart" width="300" height="150"></canvas>
+    </div>
+
+    <!-- Contrôles -->
+    <div id="controlsSection" class="controls-section hidden">
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">Tous</button>
+        <button class="filter-btn" data-filter="1">Positif</button>
+        <button class="filter-btn" data-filter="0">Neutre</button>
+        <button class="filter-btn" data-filter="-1">Négatif</button>
+      </div>
+      <button id="analyzeBtn" class="analyze-btn">Analyser les commentaires</button>
+      <button id="exportBtn" class="export-btn">Exporter CSV</button>
+    </div>
+
+    <!-- Liste des commentaires -->
+    <div id="commentsSection" class="comments-section hidden">
+      <h2>Commentaires (<span id="totalCount">0</span>)</h2>
+      <div id="commentsList" class="comments-list"></div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <p>Analyse en cours...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="error hidden"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
