@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "YouTube Sentiment Analyzer",
     "version": "1.0.0",
-    "description": "Analyse automatique du sentiment des commentaires YouTube en temps réel",
+    "description": "Analyse automatique du sentiment des commentaires YouTube",
     
     "permissions": [
       "activeTab",
@@ -11,8 +11,9 @@
     
     "host_permissions": [
       "https://www.youtube.com/*",
-      "https://localhost:8000/*",
-      "https://*.hf.space/*"
+      "http://localhost:8000/*",
+      "https://*.hf.space/*",
+      "https://*.cloudspaces.litng.ai/*" 
     ],
     
     "action": {
@@ -21,12 +22,16 @@
     },
     
     "content_scripts": [
-      {
-        "matches": ["https://www.youtube.com/watch*"],
-        "js": ["content.js"],
-        "run_at": "document_idle"
-      }
+  {
+    "matches": [
+      "https://www.youtube.com/watch*",
+      "https://m.youtube.com/watch*",
+      "https://youtube.com/watch*"
     ],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }
+],
     
     "icons": {
       "16": "icons/icon16.png",

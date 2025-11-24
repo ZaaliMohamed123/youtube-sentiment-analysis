@@ -1,5 +1,5 @@
 // Configuration
-const API_URL = 'http://localhost:8000'; // À changer pour l'URL de production
+const API_URL = 'https://8000-01kav108wbnjv4gg418mp1c6r9.cloudspaces.litng.ai';
 let comments = [];
 let predictions = [];
 
@@ -23,6 +23,7 @@ const elements = {
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('[Popup] DOM chargé, initialisation...');
   initTheme();
   setupEventListeners();
   extractComments();
@@ -37,16 +38,10 @@ function initTheme() {
 }
 
 function setupEventListeners() {
-  // Theme toggle
   elements.themeToggle.addEventListener('click', toggleTheme);
-  
-  // Analyze button
   elements.analyzeBtn.addEventListener('click', analyzeComments);
-  
-  // Export button
   elements.exportBtn.addEventListener('click', exportResults);
   
-  // Filter buttons
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -63,47 +58,81 @@ function toggleTheme() {
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
 
+// 🔍 FONCTION MODIFIÉE AVEC LOGS DÉTAILLÉS
 function extractComments() {
-  // Demande au content script d'extraire les commentaires
+  console.log('[Popup] Début extraction commentaires...');
+  
+  // Timeout de sécurité
+  const timeoutId = setTimeout(() => {
+    console.error('[Popup] Timeout extraction après 5 secondes');
+    showError('Timeout extraction. Vérifiez la console.');
+  }, 5000);
+  
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, {action: 'getComments'}, (response) => {
+    console.log('[Popup] Tabs query result:', tabs);
+    
+    if (!tabs || tabs.length === 0) {
+      clearTimeout(timeoutId);
+      showError('Aucun onglet actif trouvé.');
+      return;
+    }
+    
+    const activeTab = tabs[0];
+    console.log('[Popup] Tab ID:', activeTab.id, 'URL:', activeTab.url);
+    
+    // Vérifier qu'on est bien sur YouTube
+    if (!activeTab.url || !activeTab.url.includes('youtube.com/watch')) {
+      clearTimeout(timeoutId);
+      showError('Ce n\'est pas une page vidéo YouTube.');
+      return;
+    }
+    
+    // Envoi message au content script
+    console.log('[Popup] Envoi message getComments au tab:', activeTab.id);
+    
+    chrome.tabs.sendMessage(activeTab.id, {action: 'getComments'}, (response) => {
+      clearTimeout(timeoutId);
+      
+      console.log('[Popup] Réponse reçue:', response);
+      console.log('[Popup] chrome.runtime.lastError:', chrome.runtime.lastError);
+      
       if (chrome.runtime.lastError) {
-        showError('Impossible d\'extraire les commentaires. Rechargez la page.');
+        console.error('[Popup] Erreur Chrome:', chrome.runtime.lastError.message);
+        showError(`Erreur communication: ${chrome.runtime.lastError.message}`);
         return;
       }
       
-      if (response && response.comments) {
+      if (response && response.success && response.comments) {
         comments = response.comments;
-        updateUI();
+        console.log('[Popup] Commentaires extraits:', comments.length);
+        
+        if (comments.length === 0) {
+          showError('Aucun commentaire trouvé sur cette vidéo.');
+          return;
+        }
+        
+        // Succès !
+        elements.status.classList.add('hidden');
+        elements.statsSection.classList.remove('hidden');
+        elements.controlsSection.classList.remove('hidden');
+        elements.commentsSection.classList.remove('hidden');
+        elements.totalCount.textContent = comments.length;
       } else {
-        showError('Aucun commentaire trouvé sur cette page.');
+        console.error('[Popup] Réponse invalide:', response);
+        showError('Réponse invalide du content script.');
       }
     });
   });
 }
 
-function updateUI() {
-  if (comments.length === 0) {
-    showError('Aucun commentaire à analyser.');
-    return;
-  }
-  
-  elements.status.classList.add('hidden');
-  elements.statsSection.classList.remove('hidden');
-  elements.controlsSection.classList.remove('hidden');
-  elements.commentsSection.classList.remove('hidden');
-  
-  elements.totalCount.textContent = comments.length;
-}
-
 async function analyzeComments() {
   if (comments.length === 0) return;
   
+  console.log('[Popup] Début analyse batch...');
   elements.loading.classList.remove('hidden');
   elements.error.classList.add('hidden');
   
   try {
-    // Envoie les commentaires à l'API
     const response = await fetch(`${API_URL}/predict/batch`, {
       method: 'POST',
       headers: {
@@ -115,17 +144,19 @@ async function analyzeComments() {
     });
     
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
     
     const result = await response.json();
     predictions = result.predictions;
+    console.log('[Popup] Analyse terminée:', predictions.length, 'prédictions');
     
     displayResults();
     updateStats();
     
   } catch (error) {
-    showError(`Erreur API : ${error.message}. Vérifiez que l'API est démarrée.`);
+    console.error('[Popup] Erreur analyse:', error);
+    showError(`Erreur API : ${error.message}`);
   } finally {
     elements.loading.classList.add('hidden');
   }
@@ -166,7 +197,6 @@ function updateStats() {
   elements.neutralCount.textContent = counts['0'];
   elements.negativeCount.textContent = counts['-1'];
   
-  // Simple bar chart with canvas
   drawChart(counts);
 }
 
@@ -176,17 +206,14 @@ function drawChart(counts) {
   const width = canvas.width;
   const height = canvas.height;
   
-  // Clear canvas
   ctx.clearRect(0, 0, width, height);
   
-  // Data
   const data = [counts['1'], counts['0'], counts['-1']];
   const max = Math.max(...data, 1);
   const barWidth = 60;
   const spacing = 20;
   const colors = ['#34a853', '#fbbc04', '#ea4335'];
   
-  // Draw bars
   data.forEach((value, index) => {
     const barHeight = (value / max) * (height - 40);
     const x = index * (barWidth + spacing) + 30;
@@ -195,7 +222,6 @@ function drawChart(counts) {
     ctx.fillStyle = colors[index];
     ctx.fillRect(x, y, barWidth, barHeight);
     
-    // Labels
     ctx.fillStyle = document.body.classList.contains('dark-mode') ? '#e8eaed' : '#202124';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
@@ -241,6 +267,7 @@ function exportResults() {
 }
 
 function showError(message) {
+  console.error('[Popup] Erreur affichée:', message);
   elements.error.textContent = message;
   elements.error.classList.remove('hidden');
   elements.status.classList.add('hidden');

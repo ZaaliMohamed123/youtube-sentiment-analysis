@@ -1,46 +1,54 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator
-from typing import List, Dict, Any
+from pydantic import BaseModel, Field
+from typing import List, Dict
 import joblib
 import os
 import time
 import numpy as np
 from fastapi.middleware.cors import CORSMiddleware
 
+# Configuration optimisée pour la production
 app = FastAPI(
     title="YouTube Sentiment Analysis API",
     description="API pour analyser le sentiment des commentaires YouTube",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",  # Swagger UI
+    redoc_url="/redoc"  # ReDoc
 )
 
+# CORS pour production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://www.youtube.com",  # Autorise l'extension sur YouTube
-        "https://8000-01kav108wbnjv4gg418mp1c6r9.cloudspaces.litng.ai",  # Ton domaine cloud
-        "http://localhost:8000"  # Pour le développement local
+        "https://www.youtube.com",
+        "https://*.hf.space",
+        "https://huggingface.co"
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # Autorise toutes les méthodes (GET, POST, etc.)
-    allow_headers=["*"],  # Autorise tous les headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Chargement du modèle au démarrage
+# Chargement du modèle avec gestion d'erreurs
 MODELS_DIR = "models"
 pipeline_path = os.path.join(MODELS_DIR, "sentiment_pipeline.joblib")
 
-if not os.path.exists(pipeline_path):
-    raise FileNotFoundError(f"Modèle non trouvé : {pipeline_path}")
-
-model = joblib.load(pipeline_path)
+@app.on_event("startup")
+async def load_model():
+    """Charger le modèle au démarrage de l'application"""
+    global model
+    if not os.path.exists(pipeline_path):
+        raise FileNotFoundError(f"❌ Modèle non trouvé : {pipeline_path}")
+    model = joblib.load(pipeline_path)
+    print(f"✅ Modèle chargé avec succès depuis {pipeline_path}")
 
 
 class CommentInput(BaseModel):
-    text: str = Field(..., min_length=1, max_length=5000, description="Texte du commentaire")
+    text: str = Field(..., min_length=1, max_length=5000)
 
 
 class BatchInput(BaseModel):
-    texts: List[str] = Field(..., min_items=1, max_items=100, description="Liste de commentaires")
+    texts: List[str] = Field(..., min_items=1, max_items=100)
 
 
 class PredictionOutput(BaseModel):
@@ -59,16 +67,13 @@ def predict_single(text: str) -> tuple:
     """Prédit le sentiment d'un seul commentaire"""
     start = time.time()
     
-    # Nettoyage basique
     text = str(text).strip()
     if not text:
         raise ValueError("Texte vide")
     
-    # Prédiction
     prediction = model.predict([text])[0]
     probabilities = model.predict_proba([text])[0]
     
-    # Formatage des probabilités
     prob_dict = {
         "-1": float(probabilities[0]),
         "0": float(probabilities[1]),
@@ -76,19 +81,28 @@ def predict_single(text: str) -> tuple:
     }
     
     confidence = float(max(probabilities))
-    processing_time = (time.time() - start) * 1000  # en ms
+    processing_time = (time.time() - start) * 1000
     
     return prediction, prob_dict, confidence, processing_time
 
 
 @app.get("/")
 async def root():
-    return {"message": "YouTube Sentiment Analysis API", "version": "1.0.0"}
+    return {
+        "message": "YouTube Sentiment Analysis API",
+        "version": "1.0.0",
+        "model_loaded": model is not None,
+        "endpoints": ["/health", "/predict", "/predict/batch", "/docs"]
+    }
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "model_loaded": model is not None}
+    return {
+        "status": "healthy",
+        "model_loaded": model is not None,
+        "timestamp": time.time()
+    }
 
 
 @app.post("/predict", response_model=PredictionOutput)
@@ -100,10 +114,10 @@ async def predict_sentiment(input_data: CommentInput):
             sentiment=sentiment,
             probabilities=probabilities,
             confidence=confidence,
-            text=input_data.text[:200]  # Limite l'affichage
+            text=input_data.text[:200]
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
 
 @app.post("/predict/batch", response_model=BatchOutput)
@@ -131,9 +145,9 @@ async def predict_batch(input_data: BatchInput):
             processing_time_ms=total_time
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction batch : {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur batch: {str(e)}")
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=7860)  # Port 7860 pour Hugging Face
